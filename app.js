@@ -1,18 +1,56 @@
 const express = require('express');
 const app = express();
-const port = 3000;
+const todoRoutes = require('./routes/tododb.js');
+require('dotenv').config();
+const port = process.env.PORT;
+const db = require('./database/db.js/index.js');
+const expressLayouts = require('express-ejs-layouts')
+const session = require('express-session');
+const authRoutes = require('./routes/authRoutes');
+const { isAuthenticated } = require('./middlewares/middleware.js');
 
-// Mengimpor middleware dan rute
-const logger = require('./middleware/logger');
-const usersRoutes = require('./routes/users');
 
-// Menggunakan middleware global untuk logging
-app.use(logger);
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(expressLayouts);
 
-// Menggunakan rute untuk /users
-app.use('/users', usersRoutes);
 
-// Menjalankan server
+// Konfigurasi express-session
+app.use(session({
+   secret: process.env.SESSION_SECRET, // Gunakan secret key yang aman
+   resave: false,
+   saveUninitialized: false,
+   cookie: { secure: false } // Set ke true jika menggunakan HTTPS
+}));
+
+app.use('/', authRoutes);
+
+
+app.use('/todos', todoRoutes);
+app.set('view engine', 'ejs');
+
+app.get('/',isAuthenticated, (req, res) => {
+   res.render('index',{
+      layout: 'layouts/main-layout',
+   });
+});
+
+app.get('/contact',isAuthenticated, (req, res) => {
+    res.render('contact',{
+      layout: 'layouts/main-layout',   
+   });   
+ });
+
+ app.get('/todo-view',isAuthenticated, (req, res) => {
+   db.query('SELECT * FROM todos', (err, todos) => {
+       if (err) return res.status(500).send('Internal Server Error');
+       res.render('todo', {
+           layout: 'layouts/main-layout',
+           todos: todos
+       });
+   });
+});
+
 app.listen(port, () => {
-  console.log(`Server berjalan di http://localhost:${port}`);
+   console.log(`Server running at http://localhost:${port}/`);
 });
